@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 '''
 This extension strips everything which is not selected from
 the current svg, saves it and
@@ -35,13 +34,12 @@ import codecs
 import random
 import string
 import socket
+import inkex
 
 try:
     from os import fsencode
 except ImportError:
     fsencode = lambda x: x.encode(sys.getfilesystemencoding())
-
-DEVNULL = open(os.devnull, 'w')
 
 def get_single_instance_port():
     """
@@ -68,7 +66,7 @@ def get_single_instance_port():
                 id = int(id.strip())
                 port += 2 + id
             except:
-                sys.stderr.write("Warning: Cannot determine session ID. please report this.\n")
+                inkex.utils.debug("Warning: Cannot determine session ID. please report this.\n")
     return port
 
 # if Visicut or Inkscape cannot be found, change these lines here to VISICUTDIR="C:/Programs/Visicut" or wherever you installed it.
@@ -103,7 +101,7 @@ for arg in sys.argv[1:]:
         filename = arg
 
 if IMPORT:
-    # do not replace old file
+    # do not replace old 
     arguments += ["--add"]
 
 # find executable in the PATH
@@ -132,7 +130,7 @@ def which(program, extraPaths=[]):
 
 def inkscape_version():
     """Return Inkscape version number as float, e.g. version "0.92.4" --> return: float 0.92"""
-    version = subprocess.check_output([INKSCAPEBIN, "--version"],  stderr=DEVNULL).decode('ASCII', 'ignore')
+    version = subprocess.check_output([INKSCAPEBIN, "--version"],  stderr=subprocess.DEVNULL).decode('ASCII', 'ignore')
     assert version.startswith("Inkscape ")
     match = re.match("Inkscape ([0-9]+\.[0-9]+).*", version)
     assert match is not None
@@ -197,9 +195,9 @@ def stripSVG_inkscape(src, dest, elements):
         if DEBUG:
             # Inkscape sometimes silently ignores wrong verbs, so we need to double-check that everything's right
             for verb in verbs:
-                verb_list = [line.split(":")[0] for line in subprocess.check_output([INKSCAPEBIN, "--verb-list"], stderr=DEVNULL).split("\n")]
+                verb_list = [line.split(":")[0] for line in subprocess.check_output([INKSCAPEBIN, "--verb-list"], stderr=subprocess.DEVNULL).split("\n")]
                 if verb not in verb_list:
-                    sys.stderr.write("Inkscape does not have the verb '{}'. Please report this as a VisiCut bug.".format(verb))
+                    inkex.utils.debug("Inkscape does not have the verb '{}'. Please report this as a VisiCut bug.".format(verb))
     else:
         # Inkscape 1.2 (released 2022)
         # inkscape --export-overwrite --actions=action1;action2...
@@ -246,7 +244,7 @@ def stripSVG_inkscape(src, dest, elements):
         # run inkscape, buffer output
         subprocess.check_output(command, stderr=subprocess.STDOUT, universal_newlines=True)
     except subprocess.CalledProcessError as e:
-        sys.stderr.write("Error: cleaning the document with inkscape failed. Something might still be shown in visicut, but it could be incorrect.\nInkscape's output was:\n" + e.output)
+        inkex.utils.debug("Error: cleaning the document with inkscape failed. Something might still be shown in visicut, but it could be incorrect.\nInkscape's output was:\n" + e.output)
 
     # move output to the intended destination filename
     os.rename(tmpfile, dest)
@@ -347,10 +345,11 @@ try:
             import daemonize
             daemonize.createDaemon()
         except:
-            sys.stderr.write("Could not daemonize. Sorry, but Inkscape was blocked until VisiCut is closed")
+            inkex.utils.debug("Could not daemonize. Sorry, but Inkscape was blocked until VisiCut is closed")
     cmd = [VISICUTBIN] + arguments + [dest_filename]
-    Popen(cmd, creationflags=creationflags, close_fds=close_fds)
+    with subprocess.Popen(cmd, creationflags=creationflags, close_fds=close_fds, stderr=subprocess.DEVNULL) as p:
+        p.communicate()
 except:
-    sys.stderr.write("Can not start VisiCut (" + str(sys.exc_info()[0]) + "). Please start manually or change the VISICUTDIR variable in the Inkscape-Extension script\n")
+    inkex.utils.debug("Can not start VisiCut (" + str(sys.exc_info()[0]) + "). Please start manually or change the VISICUTDIR variable in the Inkscape-Extension script\n")
 
 # TODO (complicated, probably WONTFIX): cleanup temporary directories -- this is really difficult because we need to make sure that visicut no longer needs the file, even for reloading!
